@@ -2,7 +2,7 @@
 authors = ["Ruben Anders <ruben.anders@robotty.de>"]
 name = "fursuit-fan-controller-fw"
 edition = "2024"
-version = "1.0.0"
+version = "2.0.0"
 license = "MIT OR Apache-2.0"
 
 [lib]
@@ -15,15 +15,19 @@ defmt = "1"
 defmt-rtt = "1"
 panic-probe = { version = "1", features = ["print-defmt"] }
 semihosting = "0.1"
+# arch-spin is used so you can connect to the target without having to wire up the reset pin
+# (with arch-cortex-m, embassy puts the MCU to sleep a *lot*, and during sleep, you cannot connect to the
+# target with a programmer without wiring up the reset and connecting under reset, and the board does not
+# have a connector breaking out the reset for programming purposes)
+# To add insult to injury, many cheap ST-Link clones (Aliexpres/Amazon) don't have the NRST pin on their
+# connector wired up the MCU inside, making it impossible to reprogram the device with those clones.
 embassy-executor = { version = "0.9", features = ["arch-spin", "executor-thread", "defmt"] }
-embassy-stm32 = { version = "0.4", features = ["stm32f103c8", "defmt", "memory-x", "exti", "time", "time-driver-tim1"] }
-embassy-time = { version = "0.5", features = ["defmt", "defmt-timestamp-uptime"] }
+embassy-stm32 = { version = "0.4", features = ["stm32f103c8", "defmt", "memory-x", "time", "time-driver-tim1"] }
+embassy-time = { version = "0.5", features = ["defmt", "defmt-timestamp-uptime", "tick-hz-32_768"] }
 embassy-futures = "0.1"
 debouncr = "0.2"
 embassy-sync = { version = "0.7", features = ["defmt"] }
 static_cell = "2"
-#littlefs2 = { version = "0.6", default-features = false }
-#embedded-storage = "0.3"
 
 # cargo build/run
 [profile.dev]

@@ -7,12 +7,15 @@ use fursuit_fan_controller_fw::{self as _, task}; // global logger + panicking-b
 use defmt::info;
 use embassy_executor::Executor;
 use embassy_stm32::{
-    Config,
-    rcc::{APBPrescaler, Pll, PllMul, PllPreDiv, PllSource, Sysclk},
+    adc, bind_interrupts, peripherals::ADC1, rcc::{ADCPrescaler, APBPrescaler, Pll, PllMul, PllPreDiv, PllSource, Sysclk}, Config
 };
 use static_cell::StaticCell;
 
 static EXECUTOR: StaticCell<Executor> = StaticCell::new();
+
+bind_interrupts!(struct Irqs {
+    ADC1_2 => adc::InterruptHandler<ADC1>;
+});
 
 #[entry]
 fn main() -> ! {
@@ -36,6 +39,10 @@ fn main() -> ! {
         // APB2 at 32 MHz (max would be 32 MHz)
         config.rcc.apb1_pre = APBPrescaler::DIV2;
         config.rcc.apb2_pre = APBPrescaler::DIV1;
+
+        // Makes the ADCs run at 8 MHz
+        // (Divides the APB2 clock)
+        config.rcc.adc_pre = ADCPrescaler::DIV8;
     }
 
     let p = embassy_stm32::init(config);
@@ -49,7 +56,9 @@ fn main() -> ! {
     executor.run(|spawner| {
         defmt::unwrap!(spawner.spawn(task::button_poller(p.PA9, p.PA8)));
         defmt::unwrap!(spawner.spawn(task::main_task(
-            p.TIM2, p.TIM3, p.PA1, p.PA2, p.PA3, p.PA6, p.PA7
+            p.TIM2, p.TIM3, p.PA1, p.PA2, p.PA3, p.PA6, p.PA7, p.PB0
         )));
+        defmt::unwrap!(spawner.spawn(task::dummy_pulser()));
+        defmt::unwrap!(spawner.spawn(task::detect_cc(p.PA4, p.PA5, p.ADC1)));
     });
 }
