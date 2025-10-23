@@ -7,7 +7,9 @@ use fursuit_fan_controller_fw::{self as _, task}; // global logger + panicking-b
 use defmt::info;
 use embassy_executor::Executor;
 use embassy_stm32::{
-    adc, bind_interrupts, peripherals::ADC1, rcc::{ADCPrescaler, APBPrescaler, Pll, PllMul, PllPreDiv, PllSource, Sysclk}, Config
+    Config, adc, bind_interrupts,
+    peripherals::ADC1,
+    rcc::{ADCPrescaler, APBPrescaler, Pll, PllMul, PllPreDiv, PllSource, Sysclk},
 };
 use static_cell::StaticCell;
 
@@ -58,7 +60,6 @@ fn main() -> ! {
         defmt::unwrap!(spawner.spawn(task::main_task(
             p.TIM2, p.TIM3, p.PA1, p.PA2, p.PA3, p.PA6, p.PA7, p.PB0
         )));
-        defmt::unwrap!(spawner.spawn(task::dummy_pulser()));
         defmt::unwrap!(spawner.spawn(task::detect_cc(p.PA4, p.PA5, p.ADC1)));
     });
 }

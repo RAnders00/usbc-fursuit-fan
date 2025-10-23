@@ -9,7 +9,7 @@ use embassy_stm32::{
     },
 };
 use embassy_stm32::{
-    peripherals::{ADC1, PA1, PA2, PA3, PA4, PA5, PA6, PA7, PB0, TIM2, TIM3},
+    peripherals::{PA1, PA2, PA3, PA6, PA7, PB0, TIM2, TIM3},
     timer::simple_pwm::SimplePwm,
 };
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
@@ -22,8 +22,6 @@ pub static MAIN_TASK_MESSAGES: Channel<CriticalSectionRawMutex, MainTaskMessage,
 pub enum MainTaskMessage {
     PlusButtonPressed,
     MinusButtonPressed,
-    EnableDummyLoad,
-    DisableDummyLoad,
     /// Initially, the load cannot be enabled. Only when enough power
     /// is detected to be available (via the CC lines of the USB Type-C connector),
     /// is this enabled. (It can also later be disabled again.)
@@ -177,7 +175,6 @@ pub async fn main_task(
     let mut state_idx: usize = INITIAL_STATE_IDX;
     let mut led_turn_off_timer: Option<Timer> =
         Some(Timer::after(LED_ON_DURATION_AFTER_BUTTON_PRESS));
-    let mut dummy_enabled = false;
     let mut load_locked_out = true;
 
     loop {
@@ -186,22 +183,18 @@ pub async fn main_task(
 
             let current_state = STATES[state_idx];
             defmt::info!(
-                "Now on state {} ({}% fan, {}% dummy, dummy enabled: {})",
+                "Now on state {} ({}% fan, {}% dummy)",
                 state_idx,
                 100 * current_state.fan.numerator / current_state.fan.denominator,
                 100 * current_state.dummy.numerator / current_state.dummy.denominator,
-                dummy_enabled
             );
 
             fan.set_duty_cycle_fraction(current_state.fan.numerator, current_state.fan.denominator);
-            if dummy_enabled {
-                dummy_load.set_duty_cycle_fraction(
-                    current_state.dummy.numerator,
-                    current_state.dummy.denominator,
-                );
-            } else {
-                dummy_load.set_duty_cycle_fully_off();
-            }
+            dummy_load.set_duty_cycle_fraction(
+                current_state.dummy.numerator,
+                current_state.dummy.denominator,
+            );
+
             if led_turn_off_timer.is_some() {
                 r.set_duty_cycle_fraction(current_state.r.numerator, current_state.r.denominator);
                 g.set_duty_cycle_fraction(current_state.g.numerator, current_state.g.denominator);
@@ -243,14 +236,6 @@ pub async fn main_task(
                     state_idx -= 1;
                 }
                 led_turn_off_timer = Some(Timer::after(LED_ON_DURATION_AFTER_BUTTON_PRESS));
-            }
-            Either::First(MainTaskMessage::EnableDummyLoad) => {
-                defmt::debug!("Enabling dummy load");
-                dummy_enabled = true;
-            }
-            Either::First(MainTaskMessage::DisableDummyLoad) => {
-                defmt::debug!("Disabling dummy load");
-                dummy_enabled = false;
             }
             Either::First(MainTaskMessage::SetLoadLockedOut(locked_out)) => {
                 if locked_out {
