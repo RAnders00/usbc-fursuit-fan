@@ -15,7 +15,7 @@ use embassy_stm32::{
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::{Duration, Timer};
 
-use crate::task::Persistence;
+use crate::persistence::Persistence;
 
 pub static MAIN_TASK_MESSAGES: Channel<CriticalSectionRawMutex, MainTaskMessage, 4> =
     Channel::new();

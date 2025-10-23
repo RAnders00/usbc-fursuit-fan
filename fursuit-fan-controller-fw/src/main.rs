@@ -4,7 +4,8 @@
 use cortex_m_rt::entry;
 use fursuit_fan_controller_fw::{
     self as _,
-    task::{self, Persistence},
+    persistence::Persistence,
+    task::{self},
 }; // global logger + panicking-behavior + memory layout
 
 use defmt::info;

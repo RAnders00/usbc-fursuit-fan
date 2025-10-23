@@ -13,13 +13,13 @@ use sequential_storage::cache::NoCache;
 /// How many pages of the MCU's flash should the embedded filesystem take up?
 /// Note: More pages will result in longer lifetime, since the wear on the flash
 /// will be spread across more pages.
-/// A page is 2048 bytes in size on the STM32F303RE.
+/// A page is 1024 bytes in size on the STM32F103C8.
 #[cfg(debug_assertions)]
-pub const FILESYSTEM_SIZE_PAGES: usize = 20;
+pub const FILESYSTEM_SIZE_PAGES: usize = 22;
 
 // In release mode, less space is occupied by code, thus the filesystem can be larger
 #[cfg(not(debug_assertions))]
-pub const FILESYSTEM_SIZE_PAGES: usize = 20;
+pub const FILESYSTEM_SIZE_PAGES: usize = 29;
 
 /// Size of `FLASH_FILESYSTEM_SECTION` in bytes.
 const FLASH_FILESYSTEM_SECTION_SIZE: usize =
@@ -29,12 +29,20 @@ const FLASH_FILESYSTEM_SECTION_SIZE: usize =
 /// 1. Aligned to a flash page boundary
 /// 2. A whole multiple of a flash page in size
 ///
-/// This section is used to place the filesystem inside.
-/// The linker script `link-custom.x` handles the special .flash_filesystem section.
+/// This section is used to place the filesystem inside. The linker script
+/// `link-custom.x` handles the special .flash_filesystem section.
+///
+/// This is specified to be initialized with 0xFF - this is the value that will
+/// be written when the MCU is flashed with a new firmware, resetting the
+/// contents of the filesystem. We use 0xFF since this is what the filesystem
+/// (sequential_storage) expects freshly cleared flash sectors to look like.
+/// (Flash inherently assumes all 0xFF's after a flash page is erased)
+/// 
+/// If this was all 0's, the filesystem would report "Corrupted" errors.
 #[unsafe(link_section = ".flash_filesystem")]
 #[used]
 static mut FLASH_FILESYSTEM_SECTION: [u8; FLASH_FILESYSTEM_SECTION_SIZE] =
-    [0; FLASH_FILESYSTEM_SECTION_SIZE];
+    [0xFF; FLASH_FILESYSTEM_SECTION_SIZE];
 
 const STATE_STORAGE_KEY: u8 = 0;
 

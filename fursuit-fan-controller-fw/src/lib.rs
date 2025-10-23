@@ -2,6 +2,7 @@
 #![no_std]
 
 pub mod task;
+pub mod persistence;
 
 use defmt_rtt as _; // global logger
 
