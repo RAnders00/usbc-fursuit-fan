@@ -15,6 +15,8 @@ use embassy_stm32::{
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::{Duration, Timer};
 
+use crate::task::Persistence;
+
 pub static MAIN_TASK_MESSAGES: Channel<CriticalSectionRawMutex, MainTaskMessage, 4> =
     Channel::new();
 
@@ -87,10 +89,10 @@ const STATES: [State; 11] = [
     State::new(10, 0, 255, 40, 0).with_brightness(LED_BRIGHTNESS), // orange?
     State::new(20, 0, 255, 127, 0).with_brightness(LED_BRIGHTNESS), // yellow
     State::new(30, 0, 160, 255, 0).with_brightness(LED_BRIGHTNESS), // light green
-    State::new(40, 0, 0, 255, 0).with_brightness(LED_BRIGHTNESS),  // deep green
+    State::new(40, 0, 0, 255, 0).with_brightness(LED_BRIGHTNESS), // deep green
     State::new(50, 0, 90, 0, 255).with_brightness(LED_BRIGHTNESS), // violet
     State::new(60, 0, 0, 255, 255).with_brightness(LED_BRIGHTNESS), // teal
-    State::new(70, 0, 0, 0, 255).with_brightness(LED_BRIGHTNESS),  // deep blue
+    State::new(70, 0, 0, 0, 255).with_brightness(LED_BRIGHTNESS), // deep blue
     State::new(80, 0, 255, 40, 40).with_brightness(LED_BRIGHTNESS), // salmon
     State::new(90, 0, 255, 0, 255).with_brightness(LED_BRIGHTNESS), // pink
     State::new(100, 0, 255, 255, 255).with_brightness(LED_BRIGHTNESS), // white
@@ -110,6 +112,7 @@ pub async fn main_task(
     pa6: Peri<'static, PA6>,
     pa7: Peri<'static, PA7>,
     pb0: Peri<'static, PB0>,
+    mut persistence: Persistence,
 ) -> ! {
     let r_pin = PwmPin::new(pa1, OutputType::OpenDrain);
     let g_pin = PwmPin::new(pa2, OutputType::OpenDrain);
@@ -172,7 +175,7 @@ pub async fn main_task(
     fan.enable();
     dummy_load.enable();
 
-    let mut state_idx: usize = INITIAL_STATE_IDX;
+    let mut state_idx: usize = persistence.load_state().await.unwrap_or(INITIAL_STATE_IDX);
     let mut led_turn_off_timer: Option<Timer> =
         Some(Timer::after(LED_ON_DURATION_AFTER_BUTTON_PRESS));
     let mut load_locked_out = true;
@@ -227,6 +230,7 @@ pub async fn main_task(
                 defmt::info!("Plus button was pressed");
                 if (state_idx + 1) < STATES.len() {
                     state_idx += 1;
+                    persistence.save_state(state_idx).await;
                 }
                 led_turn_off_timer = Some(Timer::after(LED_ON_DURATION_AFTER_BUTTON_PRESS));
             }
@@ -234,6 +238,7 @@ pub async fn main_task(
                 defmt::info!("Minus button was pressed");
                 if state_idx >= 1 {
                     state_idx -= 1;
+                    persistence.save_state(state_idx).await;
                 }
                 led_turn_off_timer = Some(Timer::after(LED_ON_DURATION_AFTER_BUTTON_PRESS));
             }

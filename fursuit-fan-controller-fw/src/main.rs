@@ -2,7 +2,10 @@
 #![no_std]
 
 use cortex_m_rt::entry;
-use fursuit_fan_controller_fw::{self as _, task}; // global logger + panicking-behavior + memory layout
+use fursuit_fan_controller_fw::{
+    self as _,
+    task::{self, Persistence},
+}; // global logger + panicking-behavior + memory layout
 
 use defmt::info;
 use embassy_executor::Executor;
@@ -56,9 +59,19 @@ fn main() -> ! {
 
     let executor = EXECUTOR.init(Executor::new());
     executor.run(|spawner| {
+        let persistence = Persistence::new(p.FLASH);
+
         defmt::unwrap!(spawner.spawn(task::button_poller(p.PA9, p.PA8)));
         defmt::unwrap!(spawner.spawn(task::main_task(
-            p.TIM2, p.TIM3, p.PA1, p.PA2, p.PA3, p.PA6, p.PA7, p.PB0
+            p.TIM2,
+            p.TIM3,
+            p.PA1,
+            p.PA2,
+            p.PA3,
+            p.PA6,
+            p.PA7,
+            p.PB0,
+            persistence
         )));
         defmt::unwrap!(spawner.spawn(task::detect_cc(p.PA4, p.PA5, p.ADC1)));
     });
