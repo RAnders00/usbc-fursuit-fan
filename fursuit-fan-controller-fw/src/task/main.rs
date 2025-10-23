@@ -85,7 +85,7 @@ impl State {
 
 static LED_BRIGHTNESS: U16Fraction = U16Fraction::new(2, 10);
 const STATES: [State; 11] = [
-    State::new(5, 100, 255, 0, 0).with_brightness(LED_BRIGHTNESS), // red
+    State::new(5, 0, 255, 0, 0).with_brightness(LED_BRIGHTNESS), // red
     State::new(10, 0, 255, 40, 0).with_brightness(LED_BRIGHTNESS), // orange?
     State::new(20, 0, 255, 127, 0).with_brightness(LED_BRIGHTNESS), // yellow
     State::new(30, 0, 160, 255, 0).with_brightness(LED_BRIGHTNESS), // light green
@@ -95,10 +95,10 @@ const STATES: [State; 11] = [
     State::new(70, 0, 0, 0, 255).with_brightness(LED_BRIGHTNESS),  // deep blue
     State::new(80, 0, 255, 40, 40).with_brightness(LED_BRIGHTNESS), // salmon
     State::new(90, 0, 255, 0, 255).with_brightness(LED_BRIGHTNESS), // pink
-    State::new(100, 100, 255, 255, 255).with_brightness(LED_BRIGHTNESS), // white
+    State::new(100, 0, 255, 255, 255).with_brightness(LED_BRIGHTNESS), // white
 ];
 
-static INITIAL_STATE_IDX: usize = 10;
+static INITIAL_STATE_IDX: usize = 5;
 
 static LED_ON_DURATION_AFTER_BUTTON_PRESS: Duration = Duration::from_secs(10);
 
