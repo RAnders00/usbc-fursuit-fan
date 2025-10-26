@@ -24,10 +24,6 @@ pub static MAIN_TASK_MESSAGES: Channel<CriticalSectionRawMutex, MainTaskMessage,
 pub enum MainTaskMessage {
     PlusButtonPressed,
     MinusButtonPressed,
-    /// Initially, the load cannot be enabled. Only when enough power
-    /// is detected to be available (via the CC lines of the USB Type-C connector),
-    /// is this enabled. (It can also later be disabled again.)
-    SetLoadLockedOut(bool),
 }
 
 #[derive(Clone, Copy)]
@@ -167,7 +163,8 @@ pub async fn main_task(
         ch4: _,
     } = tim3_pwm.split();
 
-    let mut load_enable = Output::new(pb0, Level::High, Speed::Low);
+    let load_enable = Output::new(pb0, Level::High, Speed::Low);
+    core::mem::forget(load_enable); // to prevent PB0 from being reset to being an input again
 
     fan.set_duty_cycle_fully_off();
     dummy_load.set_duty_cycle_fully_off();
@@ -178,45 +175,30 @@ pub async fn main_task(
     let mut state_idx: usize = persistence.load_state().await.unwrap_or(INITIAL_STATE_IDX);
     let mut led_turn_off_timer: Option<Timer> =
         Some(Timer::after(LED_ON_DURATION_AFTER_BUTTON_PRESS));
-    let mut load_locked_out = true;
 
     loop {
-        if !load_locked_out {
-            load_enable.set_high();
+        let current_state = STATES[state_idx];
+        defmt::info!(
+            "Now on state {} ({}% fan, {}% dummy)",
+            state_idx,
+            100 * current_state.fan.numerator / current_state.fan.denominator,
+            100 * current_state.dummy.numerator / current_state.dummy.denominator,
+        );
 
-            let current_state = STATES[state_idx];
-            defmt::info!(
-                "Now on state {} ({}% fan, {}% dummy)",
-                state_idx,
-                100 * current_state.fan.numerator / current_state.fan.denominator,
-                100 * current_state.dummy.numerator / current_state.dummy.denominator,
-            );
+        fan.set_duty_cycle_fraction(current_state.fan.numerator, current_state.fan.denominator);
+        dummy_load.set_duty_cycle_fraction(
+            current_state.dummy.numerator,
+            current_state.dummy.denominator,
+        );
 
-            fan.set_duty_cycle_fraction(current_state.fan.numerator, current_state.fan.denominator);
-            dummy_load.set_duty_cycle_fraction(
-                current_state.dummy.numerator,
-                current_state.dummy.denominator,
-            );
-
-            if led_turn_off_timer.is_some() {
-                r.set_duty_cycle_fraction(current_state.r.numerator, current_state.r.denominator);
-                g.set_duty_cycle_fraction(current_state.g.numerator, current_state.g.denominator);
-                b.set_duty_cycle_fraction(current_state.b.numerator, current_state.b.denominator);
-            } else {
-                r.set_duty_cycle_fully_off();
-                g.set_duty_cycle_fully_off();
-                b.set_duty_cycle_fully_off();
-            }
+        if led_turn_off_timer.is_some() {
+            r.set_duty_cycle_fraction(current_state.r.numerator, current_state.r.denominator);
+            g.set_duty_cycle_fraction(current_state.g.numerator, current_state.g.denominator);
+            b.set_duty_cycle_fraction(current_state.b.numerator, current_state.b.denominator);
         } else {
-            // Load is locked out.
-            fan.set_duty_cycle_fully_off();
-            dummy_load.set_duty_cycle_fully_off();
-
-            r.set_duty_cycle_fraction(1, 50);
+            r.set_duty_cycle_fully_off();
             g.set_duty_cycle_fully_off();
             b.set_duty_cycle_fully_off();
-
-            load_enable.set_low();
         }
 
         let event = if let Some(timer) = &mut led_turn_off_timer {
@@ -241,16 +223,6 @@ pub async fn main_task(
                     persistence.save_state(state_idx).await;
                 }
                 led_turn_off_timer = Some(Timer::after(LED_ON_DURATION_AFTER_BUTTON_PRESS));
-            }
-            Either::First(MainTaskMessage::SetLoadLockedOut(locked_out)) => {
-                if locked_out {
-                    defmt::warn!(
-                        "Locking out the load since available USB power has been decreased!"
-                    )
-                } else {
-                    defmt::info!("Enabling load - enough USB power is available.")
-                }
-                load_locked_out = locked_out;
             }
             Either::Second(()) => {
                 defmt::info!("Turning off the LED");

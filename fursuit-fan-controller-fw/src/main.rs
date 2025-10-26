@@ -74,6 +74,5 @@ fn main() -> ! {
             p.PB0,
             persistence
         )));
-        defmt::unwrap!(spawner.spawn(task::detect_cc(p.PA4, p.PA5, p.ADC1)));
     });
 }
